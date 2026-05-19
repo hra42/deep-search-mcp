@@ -1,0 +1,26 @@
+services:
+  deep-search-mcp:
+    build: .
+    image: deep-search-mcp:local
+    container_name: deep-search-mcp
+    restart: unless-stopped
+    environment:
+      BRAVE_API_KEY: ${BRAVE_API_KEY:?BRAVE_API_KEY is required}
+      DEEP_SEARCH_MCP_TOKEN: ${DEEP_SEARCH_MCP_TOKEN:?DEEP_SEARCH_MCP_TOKEN is required}
+    networks:
+      - traefik
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/deep-search-mcp", "--version"]
+      # distroless has no shell — fall back to TCP probe via traefik instead
+      disable: true
+    labels:
+      traefik.enable: "true"
+      traefik.docker.network: "traefik"
+      traefik.http.routers.deep-search-mcp.rule: "Host(`deep-search-mcp.hra42.com`)"
+      traefik.http.routers.deep-search-mcp.entrypoints: "websecure"
+      traefik.http.routers.deep-search-mcp.tls: "true"
+      traefik.http.services.deep-search-mcp.loadbalancer.server.port: "8080"
+
+networks:
+  traefik:
+    external: true
