@@ -14,9 +14,9 @@ import (
 const DefaultUserAgent = "deep-search-mcp/0.1 (+https://github.com/hra42/deep-search-mcp)"
 
 type Fetcher struct {
-	HTTPClient       *http.Client
-	UserAgent        string
-	IgnoreRobotsTxt  bool
+	HTTPClient      *http.Client
+	UserAgent       string
+	IgnoreRobotsTxt bool
 
 	robotsMu    sync.Mutex
 	robotsCache map[string]*robotsRules

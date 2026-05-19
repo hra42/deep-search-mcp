@@ -1,5 +1,7 @@
 # deep-search-mcp
 
+[![CI](https://github.com/hra42/deep-search-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/hra42/deep-search-mcp/actions/workflows/ci.yml)
+
 An MCP server that combines Brave Web Search with in-process page fetching and readability extraction. Exposes a single high-level `deep_search` tool: given a query, it searches Brave, fetches the top results in parallel, extracts their main content as markdown, and returns one aggregated document with citations. Also ships three prompt templates that wrap the tool with sensible defaults.
 
 Built on the official [`modelcontextprotocol/go-sdk`](https://github.com/modelcontextprotocol/go-sdk). Content extraction uses [`go-shiori/go-readability`](https://github.com/go-shiori/go-readability) + [`JohannesKaufmann/html-to-markdown`](https://github.com/JohannesKaufmann/html-to-markdown). Sibling project of [go-web-fetch-mcp](https://github.com/hra42/go-web-fetch-mcp).
@@ -11,6 +13,10 @@ go install github.com/hra42/deep-search-mcp/cmd/deep-search-mcp@latest
 ```
 
 Or build from source: `make build` → `./bin/deep-search-mcp`.
+
+### Desktop install (.mcpb bundle)
+
+Each tagged release also ships a cross-platform [MCPB bundle](https://github.com/modelcontextprotocol/mcpb) — a `.mcpb` ZIP that contains prebuilt binaries for darwin / linux / windows (amd64 + arm64) and a manifest. Download the latest `deep-search-mcp-<version>.mcpb` from [Releases](https://github.com/hra42/deep-search-mcp/releases) and open it in Claude Desktop; you'll be prompted for your Brave API key on install.
 
 ## Configure
 

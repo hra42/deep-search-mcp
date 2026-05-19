@@ -1,0 +1,81 @@
+name: Release MCPB bundle
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  bundle:
+    name: build + pack + release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Resolve version
+        id: version
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#v}"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Cross-compile binaries
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          mkdir -p bundle/server
+          targets=(
+            "darwin amd64"
+            "darwin arm64"
+            "linux  amd64"
+            "linux  arm64"
+            "windows amd64"
+            "windows arm64"
+          )
+          for t in "${targets[@]}"; do
+            read -r os arch <<<"$t"
+            ext=""
+            if [ "$os" = "windows" ]; then ext=".exe"; fi
+            out="bundle/server/deep-search-mcp-${os}-${arch}${ext}"
+            echo "==> building $out"
+            GOOS="$os" GOARCH="$arch" \
+              go build -trimpath -ldflags="-s -w" -o "$out" ./cmd/deep-search-mcp
+          done
+          ls -la bundle/server
+
+      - name: Stamp manifest version
+        run: |
+          set -euo pipefail
+          version="${{ steps.version.outputs.version }}"
+          jq --arg v "$version" '.version = $v' bundle/manifest.json > bundle/manifest.tmp.json
+          mv bundle/manifest.tmp.json bundle/manifest.json
+          cat bundle/manifest.json
+
+      - name: Pack .mcpb
+        run: |
+          set -euo pipefail
+          out="deep-search-mcp-${{ steps.version.outputs.version }}.mcpb"
+          npx --yes @anthropic-ai/mcpb@latest pack bundle "$out"
+          ls -la "$out"
+          unzip -l "$out"
+
+      - name: Attach to release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: deep-search-mcp-*.mcpb
+          fail_on_unmatched_files: true
+          generate_release_notes: true

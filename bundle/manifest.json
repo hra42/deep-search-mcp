@@ -1,0 +1,53 @@
+{
+  "manifest_version": "0.3",
+  "name": "deep-search-mcp",
+  "display_name": "Deep Search",
+  "version": "0.0.0",
+  "description": "Brave Web Search + readability extraction as a single MCP tool.",
+  "author": {
+    "name": "hra42",
+    "url": "https://github.com/hra42"
+  },
+  "homepage": "https://github.com/hra42/deep-search-mcp",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hra42/deep-search-mcp"
+  },
+  "server": {
+    "type": "binary",
+    "entry_point": "server/deep-search-mcp-linux-amd64",
+    "mcp_config": {
+      "command": "server/deep-search-mcp-linux-amd64",
+      "args": [],
+      "env": {
+        "BRAVE_API_KEY": "${user_config.brave_api_key}"
+      },
+      "platform_overrides": {
+        "darwin-arm64":  { "command": "server/deep-search-mcp-darwin-arm64" },
+        "darwin-x64":    { "command": "server/deep-search-mcp-darwin-amd64" },
+        "linux-arm64":   { "command": "server/deep-search-mcp-linux-arm64" },
+        "linux-x64":     { "command": "server/deep-search-mcp-linux-amd64" },
+        "win32-arm64":   { "command": "server/deep-search-mcp-windows-arm64.exe" },
+        "win32-x64":     { "command": "server/deep-search-mcp-windows-amd64.exe" }
+      }
+    }
+  },
+  "user_config": {
+    "brave_api_key": {
+      "type": "string",
+      "title": "Brave Search API Key",
+      "description": "Sent as X-Subscription-Token to api.search.brave.com.",
+      "sensitive": true,
+      "required": true
+    }
+  },
+  "compatibility": {
+    "platforms": ["darwin", "linux", "win32"]
+  },
+  "tools": [
+    {
+      "name": "deep_search",
+      "description": "Search Brave, fetch top results in parallel, return aggregated markdown with citations."
+    }
+  ]
+}
