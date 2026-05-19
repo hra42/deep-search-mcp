@@ -16,7 +16,12 @@ Or build from source: `make build` → `./bin/deep-search-mcp`.
 
 ### Desktop install (.mcpb bundle)
 
-Each tagged release also ships a cross-platform [MCPB bundle](https://github.com/modelcontextprotocol/mcpb) — a `.mcpb` ZIP that contains prebuilt binaries for darwin / linux / windows (amd64 + arm64) and a manifest. Download the latest `deep-search-mcp-<version>.mcpb` from [Releases](https://github.com/hra42/deep-search-mcp/releases) and open it in Claude Desktop; you'll be prompted for your Brave API key on install.
+Each tagged release also ships [MCPB bundles](https://github.com/modelcontextprotocol/mcpb) — one `.mcpb` per platform, each a ZIP with a prebuilt binary and manifest. Grab the right one for your machine from [Releases](https://github.com/hra42/deep-search-mcp/releases) and open it in Claude Desktop; you'll be prompted for your Brave API key on install:
+
+- macOS Apple Silicon → `deep-search-mcp-<version>-darwin-arm64.mcpb`
+- macOS Intel → `deep-search-mcp-<version>-darwin-amd64.mcpb`
+- Linux x86_64 → `deep-search-mcp-<version>-linux-amd64.mcpb`
+- Windows x86_64 → `deep-search-mcp-<version>-windows-amd64.mcpb`
 
 ## Configure
 

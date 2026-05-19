@@ -1,4 +1,4 @@
-name: Release MCPB bundle
+name: Release MCPB bundles
 
 on:
   push:
@@ -10,8 +10,16 @@ permissions:
 
 jobs:
   bundle:
-    name: build + pack + release
+    name: build + pack (${{ matrix.target.name }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - { name: darwin-arm64,  goos: darwin,  goarch: arm64, ext: "" }
+          - { name: darwin-amd64,  goos: darwin,  goarch: amd64, ext: "" }
+          - { name: linux-amd64,   goos: linux,   goarch: amd64, ext: "" }
+          - { name: windows-amd64, goos: windows, goarch: amd64, ext: ".exe" }
     steps:
       - uses: actions/checkout@v6
 
@@ -32,43 +40,35 @@ jobs:
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
 
-      - name: Cross-compile binaries
+      - name: Build binary
         env:
           CGO_ENABLED: "0"
+          GOOS: ${{ matrix.target.goos }}
+          GOARCH: ${{ matrix.target.goarch }}
         run: |
           set -euo pipefail
           mkdir -p bundle/server
-          targets=(
-            "darwin amd64"
-            "darwin arm64"
-            "linux  amd64"
-            "linux  arm64"
-            "windows amd64"
-            "windows arm64"
-          )
-          for t in "${targets[@]}"; do
-            read -r os arch <<<"$t"
-            ext=""
-            if [ "$os" = "windows" ]; then ext=".exe"; fi
-            out="bundle/server/deep-search-mcp-${os}-${arch}${ext}"
-            echo "==> building $out"
-            GOOS="$os" GOARCH="$arch" \
-              go build -trimpath -ldflags="-s -w" -o "$out" ./cmd/deep-search-mcp
-          done
+          out="bundle/server/deep-search-mcp${{ matrix.target.ext }}"
+          go build -trimpath -ldflags="-s -w" -o "$out" ./cmd/deep-search-mcp
           ls -la bundle/server
 
-      - name: Stamp manifest version
+      - name: Stamp manifest (version + .exe on windows)
         run: |
           set -euo pipefail
           version="${{ steps.version.outputs.version }}"
-          jq --arg v "$version" '.version = $v' bundle/manifest.json > bundle/manifest.tmp.json
+          ext="${{ matrix.target.ext }}"
+          jq --arg v "$version" --arg ext "$ext" '
+            .version = $v
+            | .server.entry_point = ("server/deep-search-mcp" + $ext)
+            | .server.mcp_config.command = ("server/deep-search-mcp" + $ext)
+          ' bundle/manifest.json > bundle/manifest.tmp.json
           mv bundle/manifest.tmp.json bundle/manifest.json
           cat bundle/manifest.json
 
       - name: Pack .mcpb
         run: |
           set -euo pipefail
-          out="deep-search-mcp-${{ steps.version.outputs.version }}.mcpb"
+          out="deep-search-mcp-${{ steps.version.outputs.version }}-${{ matrix.target.name }}.mcpb"
           npx --yes @anthropic-ai/mcpb@latest pack bundle "$out"
           ls -la "$out"
           unzip -l "$out"
@@ -76,6 +76,6 @@ jobs:
       - name: Attach to release
         uses: softprops/action-gh-release@v3
         with:
-          files: deep-search-mcp-*.mcpb
+          files: deep-search-mcp-${{ steps.version.outputs.version }}-${{ matrix.target.name }}.mcpb
           fail_on_unmatched_files: true
           generate_release_notes: true
