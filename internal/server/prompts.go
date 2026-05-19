@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mark3labs/mcp-go/mcp"
-	mcpsrv "github.com/mark3labs/mcp-go/server"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 type promptSpec struct {
@@ -81,28 +80,38 @@ Cite every non-obvious claim inline as [n]. If sources conflict, surface the con
 	},
 }
 
-func registerPrompts(s *mcpsrv.MCPServer) {
+func registerPrompts(s *mcp.Server) {
 	for _, spec := range promptSpecs {
 		spec := spec
-		prompt := mcp.NewPrompt(spec.name,
-			mcp.WithPromptDescription(spec.description),
-			mcp.WithArgument("query",
-				mcp.ArgumentDescription("The topic or question to research."),
-				mcp.RequiredArgument(),
-			),
-		)
-		s.AddPrompt(prompt, func(ctx context.Context, req mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
-			query := strings.TrimSpace(req.Params.Arguments["query"])
+		prompt := &mcp.Prompt{
+			Name:        spec.name,
+			Description: spec.description,
+			Arguments: []*mcp.PromptArgument{
+				{
+					Name:        "query",
+					Description: "The topic or question to research.",
+					Required:    true,
+				},
+			},
+		}
+		s.AddPrompt(prompt, func(ctx context.Context, req *mcp.GetPromptRequest) (*mcp.GetPromptResult, error) {
+			query := ""
+			if req.Params != nil {
+				query = strings.TrimSpace(req.Params.Arguments["query"])
+			}
 			if query == "" {
 				return nil, fmt.Errorf("query argument is required")
 			}
 			text := strings.ReplaceAll(spec.body, "{{query}}", query)
-			return mcp.NewGetPromptResult(
-				spec.resultDesc,
-				[]mcp.PromptMessage{
-					mcp.NewPromptMessage(mcp.RoleUser, mcp.NewTextContent(text)),
+			return &mcp.GetPromptResult{
+				Description: spec.resultDesc,
+				Messages: []*mcp.PromptMessage{
+					{
+						Role:    "user",
+						Content: &mcp.TextContent{Text: text},
+					},
 				},
-			), nil
+			}, nil
 		})
 	}
 }

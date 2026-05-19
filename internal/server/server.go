@@ -4,61 +4,47 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/mark3labs/mcp-go/mcp"
-	mcpsrv "github.com/mark3labs/mcp-go/server"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/hra42/deep-search-mcp/internal/search"
 )
 
-func New(name, version string, svc *search.Service) *mcpsrv.MCPServer {
-	s := mcpsrv.NewMCPServer(name, version, mcpsrv.WithPromptCapabilities(false))
+type DeepSearchInput struct {
+	Query           string `json:"query" jsonschema:"natural-language search query"`
+	Count           int    `json:"count,omitempty" jsonschema:"number of Brave results to consider (default 5, max 20)"`
+	MaxPagesToFetch int    `json:"max_pages_to_fetch,omitempty" jsonschema:"how many of the top results to fetch and extract (default = count)"`
+	MaxCharsPerPage int    `json:"max_chars_per_page,omitempty" jsonschema:"maximum characters of extracted markdown to keep per page (default 4000)"`
+	MaxPerDomain    int    `json:"max_per_domain,omitempty" jsonschema:"cap how many results may share the same registrable domain (0 = no cap)"`
+}
 
-	tool := mcp.NewTool("deep_search",
-		mcp.WithDescription("Search the web via Brave, fetch and extract the top results, and return aggregated markdown with citations."),
-		mcp.WithString("query",
-			mcp.Required(),
-			mcp.Description("Natural-language search query."),
-		),
-		mcp.WithNumber("count",
-			mcp.Description("Number of Brave results to consider (default 5, max 20)."),
-		),
-		mcp.WithNumber("max_pages_to_fetch",
-			mcp.Description("How many of the top results to fetch and extract (default = count)."),
-		),
-		mcp.WithNumber("max_chars_per_page",
-			mcp.Description("Maximum characters of extracted markdown to keep per page (default 4000)."),
-		),
-		mcp.WithNumber("max_per_domain",
-			mcp.Description("Cap how many results may share the same host (0 = no cap)."),
-		),
+func New(name, version string, svc *search.Service) *mcp.Server {
+	s := mcp.NewServer(&mcp.Implementation{Name: name, Version: version}, nil)
+
+	mcp.AddTool(s,
+		&mcp.Tool{
+			Name:        "deep_search",
+			Description: "Search the web via Brave, fetch and extract the top results, and return aggregated markdown with citations.",
+		},
+		func(ctx context.Context, req *mcp.CallToolRequest, in DeepSearchInput) (*mcp.CallToolResult, any, error) {
+			opts := search.Options{
+				Query:           in.Query,
+				Count:           in.Count,
+				MaxPagesToFetch: in.MaxPagesToFetch,
+				MaxCharsPerPage: in.MaxCharsPerPage,
+				MaxPerDomain:    in.MaxPerDomain,
+			}
+			md, err := svc.DeepSearch(ctx, opts)
+			if err != nil {
+				return &mcp.CallToolResult{
+					IsError: true,
+					Content: []mcp.Content{&mcp.TextContent{Text: fmt.Sprintf("deep_search failed: %v", err)}},
+				}, nil, nil
+			}
+			return &mcp.CallToolResult{
+				Content: []mcp.Content{&mcp.TextContent{Text: md}},
+			}, nil, nil
+		},
 	)
-
-	s.AddTool(tool, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		query, err := req.RequireString("query")
-		if err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
-		opts := search.Options{Query: query}
-		args := req.GetArguments()
-		if v, ok := args["count"].(float64); ok {
-			opts.Count = int(v)
-		}
-		if v, ok := args["max_pages_to_fetch"].(float64); ok {
-			opts.MaxPagesToFetch = int(v)
-		}
-		if v, ok := args["max_chars_per_page"].(float64); ok {
-			opts.MaxCharsPerPage = int(v)
-		}
-		if v, ok := args["max_per_domain"].(float64); ok {
-			opts.MaxPerDomain = int(v)
-		}
-
-		md, derr := svc.DeepSearch(ctx, opts)
-		if derr != nil {
-			return mcp.NewToolResultError(fmt.Sprintf("deep_search failed: %v", derr)), nil
-		}
-		return mcp.NewToolResultText(md), nil
-	})
 
 	registerPrompts(s)
 

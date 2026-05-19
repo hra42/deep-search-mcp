@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -8,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	mcpsrv "github.com/mark3labs/mcp-go/server"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/hra42/deep-search-mcp/internal/brave"
 	"github.com/hra42/deep-search-mcp/internal/fetch"
@@ -20,11 +21,11 @@ const version = "0.1.0"
 
 func main() {
 	var (
-		transport     = flag.String("transport", "stdio", "Transport: stdio or http")
-		listen        = flag.String("listen", ":8080", "Bind address for http transport")
-		userAgent     = flag.String("user-agent", "", "Custom User-Agent for page fetches")
-		proxyURL      = flag.String("proxy-url", "", "HTTP/HTTPS proxy URL")
-		ignoreRobots  = flag.Bool("ignore-robots-txt", false, "Ignore robots.txt for page fetches")
+		transport    = flag.String("transport", "stdio", "Transport: stdio or http")
+		listen       = flag.String("listen", ":8080", "Bind address for http transport")
+		userAgent    = flag.String("user-agent", "", "Custom User-Agent for page fetches")
+		proxyURL     = flag.String("proxy-url", "", "HTTP/HTTPS proxy URL")
+		ignoreRobots = flag.Bool("ignore-robots-txt", false, "Ignore robots.txt for page fetches")
 	)
 	flag.Parse()
 
@@ -45,7 +46,7 @@ func main() {
 
 	switch strings.ToLower(*transport) {
 	case "stdio":
-		if err := mcpsrv.ServeStdio(mcpServer); err != nil {
+		if err := mcpServer.Run(context.Background(), &mcp.StdioTransport{}); err != nil {
 			log.Fatalf("stdio server: %v", err)
 		}
 	case "http":
@@ -53,13 +54,16 @@ func main() {
 		if token == "" {
 			log.Fatal("DEEP_SEARCH_MCP_TOKEN is required for http transport")
 		}
-		httpServer := mcpsrv.NewStreamableHTTPServer(mcpServer)
+		mcpHandler := mcp.NewStreamableHTTPHandler(
+			func(*http.Request) *mcp.Server { return mcpServer },
+			nil,
+		)
 		mux := http.NewServeMux()
 		mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte("ok"))
 		})
-		mux.Handle("/", bearerAuth(token, httpServer))
+		mux.Handle("/", bearerAuth(token, mcpHandler))
 		log.Printf("deep-search-mcp listening on %s (http)", *listen)
 		if err := http.ListenAndServe(*listen, mux); err != nil {
 			log.Fatalf("http server: %v", err)
